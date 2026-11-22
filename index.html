@@ -279,9 +279,51 @@
       transform: scale(0.985);
     }
 
-    .btn-primary:disabled {
+    .btn-primary:disabled,
+    .btn-secondary:disabled {
       opacity: 0.6;
       cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      width: 100%;
+      min-height: 50px;
+      border: 1.5px solid #cbd5e1;
+      border-radius: var(--radius-md);
+      background: #f8fafc;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 14px 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
     }
 
     .status-list {
@@ -368,8 +410,9 @@
       text-align: center;
       font-size: 12px;
       color: var(--muted);
-      margin-top: 18px;
+      margin-top: 16px;
       font-weight: 600;
+      line-height: 1.45;
     }
   </style>
 </head>
@@ -399,11 +442,11 @@
         </p>
       </div>
 
-      <!-- Google ile Giriş -->
+      <!-- Giriş Ekranı (Google + iPhone Hızlı Giriş) -->
       <div id="view-login" class="hidden">
-        <h2 class="section-title">Google Hesabınla Giriş Yap</h2>
+        <h2 class="section-title">Kayıt İçin Devam Et</h2>
         <p class="section-desc">
-          Mükerrer kayıtları önlemek ve soru çözümü durumunu canlı takip edebilmek için Google hesabınla tek dokunuşla giriş yap.
+          Sıraya kaydolmak ve derslerinin durumunu canlı takip edebilmek için aşağıdan bir yöntem seç.
         </p>
 
         <div id="login-error" class="alert alert-error hidden"></div>
@@ -412,8 +455,14 @@
           🔐 Google ile Devam Et
         </button>
 
+        <div class="divider">veya</div>
+
+        <button id="btn-guest-login" class="btn-secondary" type="button">
+          🍎 Google Hesabım Yok (iPhone / Hızlı Giriş)
+        </button>
+
         <p class="footer-note">
-          Eğer WhatsApp içi tarayıcıda giriş penceresi açılmazsa sağ üst menüden "Chrome'da / Tarayıcıda Aç" seçeneğini kullanın.
+          Google giriş penceresi açılmazsa WhatsApp'ta sağ üst menüden "Chrome / Safari'de Aç" seçeneğini kullanabilir veya alttaki Hızlı Giriş butonuna dokunabilirsin.
         </p>
       </div>
 
@@ -429,7 +478,7 @@
 
         <h2 class="section-title">Sıraya Kaydol</h2>
         <p class="section-desc">
-          Adını soyadını kontrol et ve soru çözdürmek istediğin dersleri seçip gönder.
+          Adını soyadını yaz ve soru çözdürmek istediğin dersleri seçip gönder.
         </p>
 
         <div id="form-error" class="alert alert-error hidden"></div>
@@ -463,7 +512,7 @@
         </div>
 
         <div class="alert alert-success">
-          🎉 <strong>Kaydın alındı!</strong> Öğretmeninin ekranında sıraya eklendin. Derslerinin durumunu aşağıdan canlı olarak görebilirsin.
+          🎉 <strong>Kaydın alındı!</strong> Öğretmeninin ekranında sıraya eklendin. Derslerinin durumunu aşağıdan canlı olarak takip edebilirsin.
         </div>
 
         <h2 id="reg-student-title" class="section-title"></h2>
@@ -482,6 +531,7 @@
       getAuth,
       GoogleAuthProvider,
       signInWithPopup,
+      signInAnonymously,
       signOut,
       onAuthStateChanged
     } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
@@ -495,20 +545,18 @@
     } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js';
 
     // =========================================================================
-    // BURAYA_FIREBASE_CONFIG_YAPISTIR
-    // Firebase Console -> Proje Ayarları -> Web Uygulaması'ndan aldığın bilgileri yaz
+    // BURAYA KENDİ firebaseConfig BİLGİLERİNİ YAPIŞTIR
     // =========================================================================
     const firebaseConfig = {
-       apiKey: "AIzaSyDONCi2QtjvOEejrMzqFSFUx8UzyEbGdN0",
+      apiKey: "AIzaSyDONCi2QtjvOEejrMzqFSFUx8UzyEbGdN0",
   authDomain: "gen-lang-client-0758825257.firebaseapp.com",
   projectId: "gen-lang-client-0758825257",
   storageBucket: "gen-lang-client-0758825257.firebasestorage.app",
   messagingSenderId: "638212492006",
   appId: "1:638212492006:web:1217e7eef76e15b93bc927"
-
     };
 
-    // Android uygulamanla birebir aynı Firestore veritabanı kimliği (DEĞİŞTİRME)
+    // Android uygulamanla aynı Firestore veritabanı kimliği (DEĞİŞTİRME)
     const FIRESTORE_DATABASE_ID = 'ai-studio-android-remixsor-44547cc8-6f5e-497a-9071-595b1a027315';
 
     const SUBJECTS = [
@@ -522,9 +570,30 @@
       { name: 'Tarih', icon: '🏛️' }
     ];
 
-    const params = new URLSearchParams(window.location.search);
-    const sessionId = (params.get('oturum') || '').trim();
-    const teacherUid = (params.get('kurum') || '').trim();
+    // Query + Hash + sessionStorage'dan link parametrelerini güvenle oku
+    function readLinkParams() {
+      const searchParams = new URLSearchParams(window.location.search);
+      const rawHash = (window.location.hash || '').replace(/^#/, '');
+      const hashParams = new URLSearchParams(rawHash);
+
+      let oturum = (searchParams.get('oturum') || hashParams.get('oturum') || '').trim();
+      let kurum = (searchParams.get('kurum') || hashParams.get('kurum') || '').trim();
+
+      if (oturum && kurum) {
+        try {
+          sessionStorage.setItem('sc_last_oturum', oturum);
+          sessionStorage.setItem('sc_last_kurum', kurum);
+        } catch (_) {}
+      } else {
+        try {
+          oturum = oturum || (sessionStorage.getItem('sc_last_oturum') || '').trim();
+          kurum = kurum || (sessionStorage.getItem('sc_last_kurum') || '').trim();
+        } catch (_) {}
+      }
+      return { sessionId: oturum, teacherUid: kurum };
+    }
+
+    const { sessionId, teacherUid } = readLinkParams();
     const validIdRegex = /^[a-zA-Z0-9_-]{1,128}$/;
 
     const views = {
@@ -552,6 +621,15 @@
       }
     }
 
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     if (!validIdRegex.test(sessionId) || !validIdRegex.test(teacherUid)) {
       showView('invalid');
     } else {
@@ -565,7 +643,6 @@
       let currentUser = null;
       let unsubscribeDoc = null;
 
-      // Ders seçim butonlarını oluştur
       const grid = document.getElementById('subjects-grid');
       SUBJECTS.forEach(({ name, icon }) => {
         const btn = document.createElement('button');
@@ -634,15 +711,6 @@
         showView('registered');
       }
 
-      function escapeHtml(str) {
-        return String(str)
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#39;');
-      }
-
       function attachLiveWatcher(user) {
         if (unsubscribeDoc) {
           unsubscribeDoc();
@@ -682,8 +750,10 @@
           return;
         }
 
-        const displayName = user.displayName || 'Öğrenci';
-        const email = user.email || '';
+        const isGuest = user.isAnonymous === true;
+        const displayName = isGuest ? 'Hızlı Giriş (Cihaz Oturumu)' : (user.displayName || 'Öğrenci');
+        const email = isGuest ? 'Bu cihaz üzerinden kayıt' : (user.email || '');
+
         document.getElementById('form-user-name').textContent = displayName;
         document.getElementById('form-user-email').textContent = email;
         document.getElementById('reg-user-name').textContent = displayName;
@@ -691,6 +761,8 @@
 
         showView('loading');
         try {
+          // İlk girişte token'ın hazır olduğundan emin ol
+          await user.getIdToken();
           const docId = `${sessionId}_${user.uid}`;
           const snap = await getDoc(doc(db, 'users', teacherUid, 'students', docId));
           if (snap.exists()) {
@@ -700,32 +772,57 @@
             if (!nameInput.value && user.displayName) {
               nameInput.value = user.displayName.slice(0, 100);
             }
+            showError('form-error', '');
             showView('form');
           }
           attachLiveWatcher(user);
-        } catch (err) {
+        } catch (_) {
+          showError('form-error', '');
           showView('form');
+          attachLiveWatcher(user);
         }
       });
 
-      document.getElementById('btn-google-login').addEventListener('click', async () => {
-        const btn = document.getElementById('btn-google-login');
+      const googleBtn = document.getElementById('btn-google-login');
+      const guestBtn = document.getElementById('btn-guest-login');
+
+      googleBtn.addEventListener('click', async () => {
         showError('login-error', '');
-        btn.disabled = true;
+        googleBtn.disabled = true;
+        guestBtn.disabled = true;
         try {
           await signInWithPopup(auth, provider);
         } catch (err) {
-          let msg = 'Giriş yapılamadı. Lütfen tekrar deneyin.';
+          let msg = 'Google ile giriş yapılamadı. Alttaki "Hızlı Giriş" butonunu deneyebilirsin.';
           if (err && err.code === 'auth/popup-blocked') {
-            msg = 'Açılır pencere engellendi. Lütfen tarayıcı ayarından izin verin veya sayfayı Chrome/Safari ile açın.';
+            msg = 'Giriş penceresi engellendi. "Chrome / Safari\'de Aç" seçeneğini kullan veya alttaki Hızlı Giriş butonuna dokun.';
           } else if (err && err.code === 'auth/unauthorized-domain') {
-            msg = 'Bu alan adı Firebase Authentication yetkili alan adlarına henüz eklenmemiş.';
+            msg = 'Bu alan adı Firebase Authentication yetkili alan adlarına eklenmemiş.';
           } else if (err && err.code === 'auth/popup-closed-by-user') {
             msg = '';
           }
           showError('login-error', msg);
         } finally {
-          btn.disabled = false;
+          googleBtn.disabled = false;
+          guestBtn.disabled = false;
+        }
+      });
+
+      guestBtn.addEventListener('click', async () => {
+        showError('login-error', '');
+        googleBtn.disabled = true;
+        guestBtn.disabled = true;
+        try {
+          await signInAnonymously(auth);
+        } catch (err) {
+          let msg = 'Hızlı giriş başlatılamadı. Lütfen tekrar deneyin.';
+          if (err && (err.code === 'auth/operation-not-allowed' || err.code === 'auth/admin-restricted-operation')) {
+            msg = 'Hızlı giriş henüz aktif edilmemiş (Firebase Console → Kimlik Doğrulama → Anonim seçeneğini etkinleştirin).';
+          }
+          showError('login-error', msg);
+        } finally {
+          googleBtn.disabled = false;
+          guestBtn.disabled = false;
         }
       });
 
@@ -760,28 +857,40 @@
         btn.disabled = true;
         btn.textContent = 'Kaydediliyor...';
 
-        try {
-          const docId = `${sessionId}_${currentUser.uid}`;
-          const myDocRef = doc(db, 'users', teacherUid, 'students', docId);
+        const docId = `${sessionId}_${currentUser.uid}`;
+        const myDocRef = doc(db, 'users', teacherUid, 'students', docId);
+        const buildPayload = () => ({
+          teacherId: teacherUid,
+          createdByUid: currentUser.uid,
+          source: 'student_link',
+          sessionId: sessionId,
+          name: cleanName,
+          subjects: subjectsArr,
+          solvedSubjects: [],
+          subjectStatuses: {},
+          allSolved: false,
+          createdAtMs: Date.now(),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
 
-          await setDoc(myDocRef, {
-            teacherId: teacherUid,
-            createdByUid: currentUser.uid,
-            source: 'student_link',
-            sessionId: sessionId,
-            name: cleanName,
-            subjects: subjectsArr,
-            solvedSubjects: [],
-            subjectStatuses: {},
-            allSolved: false,
-            createdAtMs: Date.now(),
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-          });
+        try {
+          await currentUser.getIdToken();
+          try {
+            await setDoc(myDocRef, buildPayload());
+          } catch (firstErr) {
+            if (firstErr && firstErr.code === 'permission-denied') {
+              // İlk girişte token gecikmesine karşı 1 kez tazeleyip tekrar dene
+              await currentUser.getIdToken(true);
+              await setDoc(myDocRef, buildPayload());
+            } else {
+              throw firstErr;
+            }
+          }
         } catch (err) {
           let msg = 'Kayıt gönderilemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.';
           if (err && err.code === 'permission-denied') {
-            msg = 'Bu haftanın kayıt linki artık geçerli değil veya bu oturuma daha önce kayıt oldunuz. Öğretmeninizden yeni linki isteyin.';
+            msg = 'Bu haftanın kayıt linki artık geçerli değil veya bu oturuma daha önce kayıt oldunuz. Öğretmeninizden güncel linki isteyin.';
           }
           showError('form-error', msg);
         } finally {
